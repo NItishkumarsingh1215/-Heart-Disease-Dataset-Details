@@ -1,5 +1,6 @@
 pandas
 matplotlib
-scikit_learn
+scikit-learn
 streamlit
-pickle
+google-genai
+python-dotenv
