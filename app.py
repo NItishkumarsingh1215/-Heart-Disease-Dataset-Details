@@ -1,0 +1,398 @@
+import os
+import pandas as pd
+import streamlit as st
+from google import genai
+from dotenv import load_dotenv
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
+
+load_dotenv()
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+
+st.set_page_config(
+    page_title="🫀 Heart Disease Prediction",
+    page_icon="❤️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+st.markdown("""
+<style>
+
+.stApp{
+    background:#0B1120;
+    color:white;
+}
+
+section[data-testid="stSidebar"]{
+    background:#111827;
+}
+
+h1,h2,h3,h4,h5,h6{
+    color:white;
+}
+
+div[data-testid="metric-container"]{
+    background:#1E293B;
+    border-radius:15px;
+    padding:15px;
+}
+            .stButton>button:hover{
+    box-shadow:0 0 20px #38BDF8;
+    transform:scale(1.03);
+}
+
+div[data-testid="metric-container"]{
+    border:1px solid #38BDF8;
+    box-shadow:0 0 12px rgba(56,189,248,.4);
+}
+
+.stApp{
+    background:linear-gradient(135deg,#0F172A,#1E293B);
+}
+
+section[data-testid="stSidebar"]{
+    border-right:2px solid #38BDF8;
+}
+        
+
+.stButton>button{
+    width:100%;
+    border-radius:12px;
+    background:linear-gradient(90deg,#2563EB,#06B6D4);
+    color:white;
+    font-size:18px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+st.sidebar.title("🫀 Heart AI")
+st.sidebar.markdown("---")
+st.sidebar.markdown("""
+<div style="
+background:#1E293B;
+padding:15px;
+border-radius:15px;
+text-align:center;
+">
+
+<h3 style="color:#38BDF8;">
+👩‍💻 Nitish Kumar Singh
+</h3>
+
+<p style="color:white;">
+Data Science Learner
+</p>
+
+<p style="color:white;">
+❤️ ML Healthcare Project
+</p>
+
+</div>
+""", unsafe_allow_html=True)
+
+df = pd.read_csv("dataset/heart.csv")
+
+x = df.drop("target", axis=1)
+y = df["target"]
+
+x_train, x_test, y_train, y_test = train_test_split(x,y,test_size=0.2,random_state=42,stratify=y)
+
+scaler = StandardScaler()
+x_train_scaler = scaler.fit_transform(x_train)
+x_test_scaler = scaler.fit_transform(x_test)
+
+#model select
+log_model = LogisticRegression(max_iter=1000,random_state=42)
+tree_model = DecisionTreeClassifier(max_depth=6,random_state=42)
+forest_model = RandomForestClassifier(n_estimators=200,random_state=42)
+
+#data fit in model 
+log_model.fit(x_train_scaler,y_train)
+tree_model.fit(x_train,y_train)
+forest_model.fit(x_train,y_train)
+
+#model prediction
+log_pred = log_model.predict(x_test_scaler)
+tree_pred = tree_model.predict(x_test)
+forest_pred = forest_model.predict(x_test)
+
+#accuracy 
+log_acc = accuracy_score(y_test,log_pred)
+tree_acc = accuracy_score(y_test,tree_pred)
+forest_acc = accuracy_score(y_test,forest_pred)
+
+model_result = pd.DataFrame({
+    "Model":["Logistic Regression","Decision Tree","Random Forest"],
+    "Accuracy":[log_acc,tree_acc,forest_acc]
+})
+
+model_result = model_result.sort_values(by="Accuracy",ascending=False)
+best_model_name = model_result.iloc[0]["Model"]
+best_accuracy = model_result.iloc[0]["Accuracy"]
+# Sidebar Navigation
+
+st.sidebar.title("🫀 Heart AI Dashboard")
+
+page = st.sidebar.radio(
+    "Navigate",
+    [
+        "📊 Data Details",
+        "📈 Visualization",
+        "❤️ Prediction",
+        "ℹ️ About"
+    ]
+)
+
+
+# ================= DATA DETAILS =================
+
+if page == "📊 Data Details":
+    st.title("📊 Heart Disease Dataset Details")
+    st.success(f"Best Model : {best_model_name}")
+    st.info(f"Accuracy : {best_accuracy*100:.2f}%")
+
+    c1,c2,c3 = st.columns(3)
+    with c1:
+        st.metric("Logistic",f"{log_acc*100:.2f}%")
+    with c2:
+        st.metric("Decision Tree",f"{tree_acc*100:.2f}%")
+    with c3:
+        st.metric("Random Forest",f"{forest_acc*100:.2f}%")
+        st.divider()
+        st.subheader("Heart Disease Dataset")
+        st.dataframe(df.head(10),
+        use_container_width=True)
+
+
+
+# ================= VISUALIZATION =================
+elif page == "📈 Visualization":
+
+    st.title("📈 Data Visualization")
+    tab1,tab2,tab3 = st.tabs(["Distribution","Relationship","Heatmap"])
+    with tab1:
+        c1,c2=st.columns(2)
+        with c1:
+            st.subheader("Heart Disease Distribution")
+            fig,ax = plt.subplots(figsize=(4,3))
+            target = df["target"].value_counts()
+            ax.bar(["Healthy","Disease"],target.values)
+            st.pyplot(fig)
+
+        with c2:
+            st.subheader("Gender Dsitribution")
+            fig,ax = plt.subplots(figsize=(4,3))
+            gender = df["gender"].value_counts()
+            ax.bar(["Female","Male"],gender.values)
+            st.pyplot(fig)
+
+        c3,c4 = st.columns(2)
+        with c3:
+            st.subheader("Age Distribution")
+            fig,ax = plt.subplots(figsize=(4,3))
+            ax.hist(df["age"],bins=20)
+            ax.set_xlabel("Age")
+            st.pyplot(fig)
+
+
+        with c4:
+            st.subheader("Cholesterol Distribution")
+            fig,ax = plt.subplots(figsize=(4,3))
+            ax.hist(df["chol"],bins=20)
+            ax.set_xlabel("Cholesterol")
+            st.pyplot(fig)
+
+    with tab2:
+        c1,c2 = st.columns(2)
+        with c1:
+            st.subheader("Age vs Cholesterol")
+            fig,ax = plt.subplots(figsize=(4,3))
+            ax.scatter(df["age"],df["chol"],alpha=0.6,c=df["age"],cmap="cool",s=10)
+            ax.set_xlabel("Age")
+            ax.set_ylabel("Cholesterol")
+            st.pyplot(fig)
+
+        with c2:
+            st.subheader("BP vs HR")
+            fig,ax = plt.subplots(figsize=(4,3))
+            ax.scatter(df["trestbps"],df["thalachh"],alpha=0.6,c=df["trestbps"],cmap="ocean",s=10)
+            ax.set_xlabel("Blood Pressure")
+            ax.set_ylabel("Heart Rate")
+            st.pyplot(fig)
+
+    with tab3:
+        st.subheader("Correlation Heatmp")
+        fig,ax = plt.subplots(figsize=(8,5))
+        heat = ax.imshow(df.corr(),cmap="coolwarm")
+        ax.set_xticks(range(len(df.columns)))
+        ax.set_xticklabels(df.columns,rotation=90,fontsize=8)
+        ax.set_yticks(range(len(df.columns)))
+        ax.set_yticklabels(df.columns,fontsize=8)
+        plt.colorbar(heat)
+        st.pyplot(fig)
+
+elif page == "❤️ Prediction":
+    st.title("Heart Disease Prediction")
+    c1,c2 = st.columns(2)
+    with c1:
+        age = st.number_input("Age :",18,100,20)
+        gender = st.selectbox("Gander :",[0,1],format_func = lambda x:"Female" if x==0 else "Male")
+        cp = st.selectbox("Chest Pain Type :",[0,1,2,3])
+        trestbps = st.number_input("Resting Blood Pressure :",80,250,120)
+        chol = st.number_input("Cholesterol :",100,600,200)
+        fbs = st.selectbox("Fasting Blood Sugar :",[0,1])
+        restecg = st.selectbox("Resting Electrocardiographic :",[0,1,2])
+        
+
+    with c2:
+        thalachh = st.number_input("Maximum Heart Rate :",60,220,150)
+        exang = st.selectbox("Excersise :",[0,1],format_func = lambda x:"No" if x==0 else "Yes")
+        oldpeak = st.number_input("Old Peak :",0.0,10.0,1.0)
+        slope = st.selectbox("Slope :",[0,1,2])
+        ca = st.selectbox("Major Vessels :",[0,1,2,3,4])
+        thal = st.selectbox("Thalassemia :",[0,1,2,3])
+
+
+
+    st.divider()
+    if st.button("Predict",use_container_width=True):
+        patient = pd.DataFrame([{
+            "age":age,
+            "gender":gender,
+            "cp":cp,
+            "trestbps":trestbps,
+            "chol":chol,
+            "fbs":fbs,
+            "restecg":restecg,
+            "thalachh":thalachh,
+            "exang":exang,
+            "oldpeak":oldpeak,
+            "slope":slope,
+            "ca":ca,
+            "thal":thal
+        }])
+
+        if best_model_name =="Logistic Regression":
+            result = log_model.predict(scaler.transform(patient))
+        elif best_model_name =="Decision Tree":
+            result = tree_model.predict(patient)
+        else:
+            result = forest_model.predict(patient)
+        
+        st.subheader("Prediction Result")
+        if result[0] ==1:
+            st.error("High Risk of Heart Disease")
+            cp_map={
+                0:"Typical Angina",
+                1:"Atypical Agina",
+                2:"Non-Angina Pain",
+                3:"Asymptomatic"
+            }
+            restecg_map={
+                0:"Normal",
+                1:"ST-T wave Abnormality",
+                2:"Left Venticular Hypertrophy"
+            }
+            slope_map={
+                0:"Upsloping",
+                1:"Flat",
+                2:"Downsloping"
+            }
+            thal_map={
+                0:"Normal",
+                1:"Fixed Defect",
+                2:"Revercible Defect",
+                3:"Unknow"
+            }
+            prompt=f"""
+            You are a experienced cardiologist.
+            A pateint's heart disease predicion model classified this patient as HIGH RISK.
+            Pateint Details
+            Age : {age}
+            Gender :{"Male" if gender==1 else "Female"}
+            Chest Pain Type :{cp_map[cp]}
+            Resting Blood Pressure : {trestbps}
+            Cholesterol : {chol}
+            Fasting Blood Sugar :{"High" if fbs ==1 else "Normal"}
+            Rest ECG :{restecg_map[restecg]}
+            Maximum Heart Rate :{thalachh}
+            Excercise Engina :{"Yes" if exang==1 else "No"}
+            Old Peak :{oldpeak}
+            Slope : {slope_map[slope]}
+            Major Vessels :{ca}
+            Thalassemia :{thal_map[thal]}
+
+            Give response in this format.
+            Risk Level
+            Possible Reason
+            Life Style Advice
+            Diet Recommendation
+            Excercise Recommendation
+            Doctor Recommendation
+            Keep response under 250 word
+            """
+            st.subheader("Ai Health Suggestion")
+            try:
+                with st.spinner("Generating AI Report....."):
+                    response = client.models.generate_content(model="gemini-flash-latest",contents=prompt)
+                st.markdown(response.text)
+            except Exception:
+                st.warning("AI Server Busy. Showing Default Health Recommendation.")
+                st.info("""
+                - Consult With Doctor
+                - Monitor Blood Pressure
+                - Reduce Cholesterol
+                """)
+
+
+        else:
+            st.success("Low Rish of Heart Diseas")
+            st.subheader("AI Health Suggestion")
+            st.info("""
+            - Continue Healthy Lifestyle
+            - Regular Exercise
+            - Balanced Diet
+            - Drink Enough Water
+            - Sleep 8 hrs daily
+            - Anual Health Checkup
+            """)
+
+    
+
+elif  page == "ℹ️ About":
+
+    st.title("ℹ️ About Project")
+
+    st.write("""
+    🫀 Heart Disease Prediction System
+
+    This project predicts heart disease using Machine Learning.
+
+    Models Used:
+    - Logistic Regression
+    - Decision Tree
+    - Random Forest
+
+    Features:
+    - Dataset Analysis
+    - Visualization
+    - Prediction
+    - AI Health Suggestion
+
+    Developed By:
+    Nitish Kumar Singh
+    """)
+
+st.markdown("---")
+st.markdown(
+"<center><h4 style='color:#38BDF8;'>❤️ Nitish Kumar Singh.</h4></center>",
+unsafe_allow_html=True
+)
+st.caption("Developed By Nitish Kumar Singh")
